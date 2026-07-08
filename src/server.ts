@@ -15,6 +15,7 @@ import { analyzeRedditSentiment, getTrendingTickers } from './tools/social.js';
 import { analyzeNewsAndMarketContext } from './tools/news.js';
 import { getPutCallRatio } from './tools/options.js';
 import { comprehensiveStockAnalysis } from './tools/comprehensive.js';
+import { getFXMacroDataReleaseCalendar } from './tools/fxmacrodata.js';
 import { isRedditConfigured, isOpenAIConfigured } from './config.js';
 
 const server = new Server(
@@ -178,6 +179,30 @@ const tools: Tool[] = [
         },
       },
       required: ['ticker'],
+    },
+  },
+  {
+    name: 'get_fxmacrodata_release_calendar',
+    description: 'Official-source macro release calendar from FXMacroData for CPI, payrolls, GDP, PCE, retail sales, and central-bank decisions. Use this before evaluating trades around market-moving macro events or when a stock thesis depends on rates, inflation, employment, or currency-sensitive catalysts.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        currency: {
+          type: 'string',
+          description: 'ISO currency code such as usd, eur, gbp, jpy, aud',
+          default: 'usd',
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of scheduled events to return',
+          default: 25,
+        },
+        min_tier: {
+          type: 'number',
+          description: 'Optional market-tier filter. Use 1 for top-tier events, 2 for medium or higher, or omit for all fetched events.',
+          default: 1,
+        },
+      },
     },
   },
 ];
@@ -345,6 +370,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'comprehensive_stock_analysis':
         return await comprehensiveStockAnalysis(args);
+
+      case 'get_fxmacrodata_release_calendar':
+        return await getFXMacroDataReleaseCalendar(args);
 
       default:
         return {
