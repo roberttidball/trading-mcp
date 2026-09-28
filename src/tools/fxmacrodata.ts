@@ -6,7 +6,7 @@ const FXMacroDataCalendarSchema = z.object({
   min_tier: z.number().optional().default(1),
 });
 
-const FXMACRODATA_BASE_URL = 'https://fxmacrodata.com/api/v1';
+const FXMACRODATA_BASE_URL = 'https://api.fxmacrodata.com/v1';
 
 export async function getFXMacroDataReleaseCalendar(args: unknown) {
   try {
@@ -16,14 +16,13 @@ export async function getFXMacroDataReleaseCalendar(args: unknown) {
       limit: String(limitCount),
     });
 
+    const headers: Record<string, string> = { 'user-agent': 'trading-mcp-fxmacrodata/1.0' };
     if (process.env.FXMACRODATA_API_KEY) {
-      params.set('api_key', process.env.FXMACRODATA_API_KEY);
+      headers['X-API-Key'] = process.env.FXMACRODATA_API_KEY;
     }
 
     const url = `${FXMACRODATA_BASE_URL}/calendar/${currency.toLowerCase()}?${params.toString()}`;
-    const response = await fetch(url, {
-      headers: { 'user-agent': 'trading-mcp-fxmacrodata/1.0' },
-    });
+    const response = await fetch(url, { headers });
 
     if (!response.ok) {
       throw new Error(`FXMacroData returned ${response.status} ${response.statusText}`);
