@@ -17,13 +17,21 @@ export async function getFXMacroDataReleaseCalendar(args: unknown) {
     });
 
     const headers: Record<string, string> = { 'user-agent': 'trading-mcp-fxmacrodata/1.0' };
-    if (process.env.FXMACRODATA_API_KEY) {
-      headers['X-API-Key'] = process.env.FXMACRODATA_API_KEY;
+    const apiKey = process.env.FXMACRODATA_API_KEY?.trim();
+    if (apiKey) {
+      if (/[\s\u0000-\u001f\u007f]/.test(apiKey)) {
+        throw new Error('FXMACRODATA_API_KEY contains whitespace or control characters');
+      }
+      headers['X-API-Key'] = apiKey;
     }
 
     const url = `${FXMACRODATA_BASE_URL}/calendar/${currency.toLowerCase()}?${params.toString()}`;
-    const response = await fetch(url, { headers });
+    // Do not follow redirects: fetch would carry the X-API-Key header to the new location.
+    const response = await fetch(url, { headers, redirect: 'manual' });
 
+    if (response.status >= 300 && response.status < 400) {
+      throw new Error(`FXMacroData returned an unexpected redirect (${response.status})`);
+    }
     if (!response.ok) {
       throw new Error(`FXMacroData returned ${response.status} ${response.statusText}`);
     }
@@ -33,9 +41,15 @@ export async function getFXMacroDataReleaseCalendar(args: unknown) {
       timezone?: string;
       data_quality?: unknown;
       data?: Array<Record<string, unknown>>;
-    };
+      detail?: unknown;
+    } | null;
 
-    const events = (payload.data ?? []).filter((event) => {
+    if (!payload || typeof payload !== 'object' || !Array.isArray(payload.data)) {
+      const detail = payload && typeof payload === 'object' && typeof payload.detail === 'string' ? `: ${payload.detail}` : '';
+      throw new Error(`unexpected FXMacroData response${detail}`);
+    }
+
+    const events = payload.data.filter((event) => event && typeof event === 'object').filter((event) => {
       if (min_tier === undefined || min_tier === null) return true;
       const tier = Number(event.market_tier ?? 99);
       return tier <= min_tier;
